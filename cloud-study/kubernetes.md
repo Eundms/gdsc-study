@@ -1,1 +1,1 @@
-### [쿠버네티스 공식문서(기본)](./kubernetes-basic.md)
+### [쿠버네티스 공식문서(기본)](./kubernetes-basic/kubernetes-basic.md)
