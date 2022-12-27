@@ -1,0 +1,316 @@
+# kubernetes-basic
+
+생성 일시: 2022년 12월 27일 오후 5:34
+선택: 강의
+태그: 공식문서
+
+## 쿠버네티스 기초 배우기
+
+### Kubernetes Cluster 생성 ([공식문서](https://kubernetes.io/docs/tutorials/kubernetes-basics/create-cluster/cluster-interactive/))
+
+```bash
+minikube start 
+```
+
+```bash
+kubectl version
+```
+
+```bash
+kubectl cluster-info # cluster details
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled.png)
+
+```bash
+kubectl get nodes # cluster가 관리하는 노드 확인
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%201.png)
+
+### 실행중인 kubernetes Cluster 위에 컨테이너화된 애플리케이션 배포 ([공식문서](https://kubernetes.io/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/))
+
+```bash
+kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1
+# 배포를 위해  kubernetes-bootcamp 이름을 가진 배포본 / 이미지 위치 를 제공해야 한다.
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%202.png)
+
+Kubernetes 안에서 run하고 있는 pod들은 private, isolated network를 가진다. 
+
+기본적으로 같은 kubernetes cluster 내의 pods나 서비스에게는 visible하지만, 외부 네트워크에서는 접근이 불가능하다.
+
+두번째 터미널에 kubectl proxy 명령어를 이용하여 **kubectl 명령은 통신을 클러스터 전체의 개인 네트워크로 전달하는 프록시를 만들어보자.**
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%203.png)
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%204.png)
+
+### Kubectl 명령어 이용하여, Pods 탐색
+
+```bash
+kubectl get pods
+kubectl describe pods
+# 해당 포드 내부에 어떤 컨테이너가 있고 이러한 컨테이너를 구축하는 데 사용되는 이미지를 확인하려면 description pods 명령을 실행
+```
+
+![pods의 **컨테이너(IP 주소, 사용된 포트 및 팟의 라이프사이클과 관련된 이벤트 목록)에 대한 세부 정보를 확인**](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%205.png)
+
+pods의 **컨테이너(IP 주소, 사용된 포트 및 팟의 라이프사이클과 관련된 이벤트 목록)에 대한 세부 정보를 확인**
+
+Recall that Pods are running in an isolated, private network - so we need to ***proxy access to them so we can debug and interact with them***. To do this, we'll use the `kubectl proxy`
+ command to run a proxy in a second terminal window.
+
+```bash
+kubectl proxy
+```
+
+```bash
+export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+
+echo Name of the Pod: $POD_NAME
+
+curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME/proxy/
+```
+
+```bash
+kubectl logs $POD_NAME # logs 명령어 : print
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%206.png)
+
+```bash
+kubectl exec $POD_NAME -- env
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%207.png)
+
+```bash
+kubectl exec -ti $POD_NAME -- bash # pod container의 bash session 시작 
+```
+
+```bash
+exit # bash shell 종료
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%208.png)
+
+### Service를 사용하여 App 노출 ([공식문서](https://kubernetes.io/docs/tutorials/kubernetes-basics/expose/))
+
+Pod에는 생명 주기가 있다. 작업자 노드가 죽으면, 노드에서 실행 중인 pod도 손실된다. 
+
+ReplicaSet은 새포드 생성을 통해 클러스터를 원하는 상태로 동적으로 되돌릴 수 있다.
+
+kubernetes 클러스터의 각 포드에는 고유한 IP주소가 있다. ⇒ 포드 간 변경 사항을 자동으로 조절하는 방법이 필요하다. 
+
+**Kubernetes의 서비스는 포드의 논리적 집합과 포드에 액세스하는 정책을 정의하는 추상화입니다.**
+
+서비스는 yaml 또는 JSON을 사용하여 정의된다.
+
+**서비스가 대상으로 하는 포드 세트는 일반적으로 라벨 선택기에 의해 결정된다.**
+
+각 Pod에는 고유한 IP 주소가 있지만 해당 IP는 서비스 없이 클러스터 외부에 노출되지 않다. 서비스를 통해 애플리케이션은 트래픽을 수신할 수 있습니다
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%209.png)
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2010.png)
+
+### step1. 새로운 서비스 생성
+
+```bash
+kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2011.png)
+
+```bash
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+echo NODE_PORT=$NODE_PORT
+```
+
+```bash
+curl $(minikube ip):$NODE_PORT
+```
+
+### label 사용
+
+```bash
+kubectl get pods -l app=kubernetes-bootcamp
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2012.png)
+
+```bash
+kubectl get services -l app=kubernetes-bootcamp
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2013.png)
+
+```bash
+export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+echo Name of the Pod: $POD_NAME
+```
+
+```bash
+kubectl label pods $POD_NAME version=v1
+```
+
+```bash
+kubectl describe pods $POD_NAME
+```
+
+```bash
+kubectl get pods -l version=v1
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2014.png)
+
+### delete service
+
+```bash
+kubectl delete service -l app=kubernetes-bootcamp
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2015.png)
+
+![cluster 밖에서는(minikube ip로 접근) 접근이 불가능하지만, 내부에서는 돌아가고 있음을 확인할 수 있다. 이로써, service는 cluster 밖에서의 접근을 담당한다는 것을 알 수 있다.](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2016.png)
+
+cluster 밖에서는(minikube ip로 접근) 접근이 불가능하지만, 내부에서는 돌아가고 있음을 확인할 수 있다. 이로써, service는 cluster 밖에서의 접근을 담당한다는 것을 알 수 있다.
+
+### Scale Your APP ([공식문서](https://kubernetes.io/docs/tutorials/kubernetes-basics/scale/scale-intro/))
+
+Scaling**은 deployment 환경에서 replica 수를 변경하는 방식으로 진행된다.**
+
+![module_05_scaling1.svg](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/module_05_scaling1.svg)
+
+![module_05_scaling2.svg](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/module_05_scaling2.svg)
+
+사용 가능한 리소스가 있는 노드에 새 포드가 생성되고 예약됩니다. 크기를 조정하면 포드 수가 새 원하는 상태로 증가합니다. Kubernetes는 포드의 자동 스케일링을 지원한다.
+
+응용 프로그램의 여러 인스턴스를 실행하려면 모든 인스턴스에 트래픽을 분산하는 방법이 필요합니다. 서비스에는 네트워크 트래픽을 노출된 배포의 모든 포드에 배포하는 통합 로드 밸런싱 장치가 있습니다. 서비스는 엔드포인트를 사용하여 실행 중인 포드를 지속적으로 모니터링하여 트래픽이 사용 가능한 포드로만 전송되도록 합니다.
+
+애플리케이션의 여러 인스턴스를 실행하면 다운타임 없이 롤링 업데이트를 수행할 수 있습니다. 우리는 다음 모듈에서 그것을 다룰 것이다.
+
+### Step01. scaling a deployment
+
+```bash
+kubectl scale deployments/kubernetes-bootcamp --replicas=4
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2017.png)
+
+```bash
+kubectl get pods -o wide
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2018.png)
+
+### step02. load balancing
+
+서비스가 트래픽 로드 밸런싱을 수행하는지 확인해 보겠습니다. 노출된 IP 및 포트를 확인하려면 이전 모듈에서 학습한 대로 설명 서비스를 사용할 수 있습니다.
+
+```bash
+kubectl describe deployments/kubernetes-bootcamp
+```
+
+```bash
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+echo NODE_PORT=$NODE_PORT
+```
+
+```bash
+curl $(minikube ip):$NODE_PORT
+```
+
+### step03. scale down
+
+```bash
+kubectl scale deployments/kubernetes-bootcamp --replicas=2
+```
+
+```bash
+kubectl get deployments
+```
+
+```bash
+kubectl get pods -o wide
+```
+
+### Performing a Rolling Update([공식문서](https://kubernetes.io/docs/tutorials/kubernetes-basics/update/update-intro/))
+
+**롤링 업데이트를** 사용하면 포드 인스턴스를 새 인스턴스로 점진적으로 업데이트하여 다운타임 없이 배포 업데이트를 수행할 수 있습니다.
+
+새 포드는 사용 가능한 리소스가 있는 노드에서 예약됩니다.
+
+![점차 보라색으로 바뀌어간다.](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/module_06_rollingupdates3.svg)
+
+점차 보라색으로 바뀌어간다.
+
+롤링 업데이트는 다음 작업을 허용합니다.
+
+- 한 환경에서 다른 환경으로 애플리케이션 승격(컨테이너 이미지 업데이트를 통해)
+- 이전 버전으로 롤백
+- 중단 시간이 없는 애플리케이션의 지속적인 통합 및 지속적인 제공
+
+*배포가 공개적으로 노출되면 서비스는 업데이트 중에 사용 가능한 포드로만 트래픽 부하를 분산합니다.*
+
+### ****Step 1: Update the version of the app****
+
+![동일한 앱에 대해 4개의 노드가 일하는 중](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2019.png)
+
+동일한 앱에 대해 4개의 노드가 일하는 중
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2020.png)
+
+애플리케이션의 이미지를 버전 2로 업데이트하려면 set image 명령을 사용한 다음 배포 이름과 새 이미지 버전을 사용합니다.
+
+```bash
+kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=jocatalin/kubernetes-bootcamp:v2
+```
+
+![버전2 이미지로 치환](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2021.png)
+
+버전2 이미지로 치환
+
+### ****Step 2: Verify an update****
+
+```bash
+kubectl describe services/kubernetes-bootcamp
+
+export NODE_PORT=$(kubectl get services/kubernetes-bootcamp -o go-template='{{(index .spec.ports 0).nodePort}}')
+echo NODE_PORT=$NODE_PORT
+
+curl $(minikube ip):$NODE_PORT
+
+```
+
+```bash
+kubectl rollout status deployments/kubernetes-bootcamp
+```
+
+```bash
+kubectl set image deployments/kubernetes-bootcamp kubernetes-bootcamp=gcr.io/google-samples/kubernetes-bootcamp:v10
+```
+
+![ImagePullBackOff 상태](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2022.png)
+
+ImagePullBackOff 상태
+
+```bash
+kubectl describe pods # 더 자세한 상태 확인하기 위해서...!
+```
+
+![In the `Events`section of the output for the affected Pods, notice that the `v10`
+ image version did not exist in the repository.](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2023.png)
+
+In the `Events`section of the output for the affected Pods, notice that the `v10`
+ image version did not exist in the repository.
+
+```bash
+kubectl rollout undo deployments/kubernetes-bootcamp # undo update
+```
+
+![Untitled](kubernetes-basic%20bbe56a8df0f143769badd1644166e912/Untitled%2024.png)
+
+
