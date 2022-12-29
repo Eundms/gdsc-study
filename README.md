@@ -21,3 +21,9 @@ gdsc활동 내 참여한 스터디에서 배운 내용 정리
 
 ### **Topic02. Kubernetes**
 * 따배쿠 수강 ([링크](./cloud-study/kubernetes.md))
+
+
+## **[3] System Design Study**
+### **Book01. 가상 면접 사례로 배우는 대규모 시스템 설계 기초**
+* 정리중 ([링크](https://github.com/wabede/book_system-design-interview))
+* 질문 ([링크](./system_design-study/question.md))
